@@ -1,0 +1,440 @@
+openapi: 3.0.3
+info:
+  title: Plataforma de Avaliação de Cafés Locais
+  version: "1.0"
+  description: |
+    API REST em Java (Servlets) com padrão MVC — Controller → Service → DAO — e MySQL.
+
+    **Como testar as rotas protegidas (cadeado):**
+    1. Em **Autenticação → POST /auth/login**, clique em *Execute*
+       (usuários de teste: `guilherme@email.com` ou `vitor@email.com`, senha `123456`).
+    2. Pronto: o token é aplicado automaticamente no botão **Authorize** (o cadeado fecha).
+       Para trocar de usuário, basta fazer login com outro e-mail.
+
+    Todo `GET` é público. `POST`, `PUT`, `PATCH` e `DELETE` exigem token JWT.
+
+servers:
+  - url: /cafes/api
+    description: Servidor local (Docker)
+
+tags:
+  - name: Autenticação
+    description: Cadastro de usuário e login (gera o token JWT)
+  - name: Cafés
+    description: Cadastro de cafeterias, filtros e médias das avaliações
+  - name: Reviews
+    description: Avaliações por bebida, ambiente e atendimento (notas de 1 a 5)
+
+paths:
+  /auth/registrar:
+    post:
+      tags: [Autenticação]
+      summary: Cadastrar usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistroRequest' }
+      responses:
+        '201':
+          description: Usuário criado (a senha nunca é devolvida)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Login — devolve o token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Login realizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+
+  /cafes:
+    get:
+      tags: [Cafés]
+      summary: Listar cafés (com filtros e médias)
+      parameters:
+        - name: bairro
+          in: query
+          description: Filtra pelo bairro (não diferencia maiúsculas/minúsculas)
+          schema: { type: string, example: Centro }
+        - name: tipo
+          in: query
+          description: Filtra pelo tipo de café principal
+          schema: { type: string, example: espresso }
+        - name: ordenar
+          in: query
+          description: "`nome` (padrão) ou `media` (ranking: melhor média primeiro)"
+          schema: { type: string, enum: [nome, media] }
+      responses:
+        '200':
+          description: Lista de cafés
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Cafe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+    post:
+      tags: [Cafés]
+      summary: Cadastrar café
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CafeInput' }
+      responses:
+        '201':
+          description: Café criado (cabeçalho Location aponta para o novo recurso)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cafe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+
+  /cafes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Cafés]
+      summary: Buscar café por id (com médias)
+      responses:
+        '200':
+          description: Café encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cafe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Cafés]
+      summary: Substituir café (todos os campos obrigatórios)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CafeInput' }
+      responses:
+        '200':
+          description: Café atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cafe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    patch:
+      tags: [Cafés]
+      summary: Alterar parcialmente (só os campos enviados)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CafePatch' }
+      responses:
+        '200':
+          description: Café atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cafe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    delete:
+      tags: [Cafés]
+      summary: Excluir café (somente se não tiver reviews)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Excluído — sem conteúdo }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /cafes/{id}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Cafés]
+      summary: Listar reviews de um café
+      responses:
+        '200':
+          description: Reviews do café
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Review' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+  /reviews:
+    get:
+      tags: [Reviews]
+      summary: Listar reviews
+      parameters:
+        - name: cafeId
+          in: query
+          description: Opcional — somente reviews deste café
+          schema: { type: integer, example: 1 }
+      responses:
+        '200':
+          description: Lista de reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Review' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    post:
+      tags: [Reviews]
+      summary: Avaliar um café (autor = usuário do token)
+      description: Cada usuário pode avaliar o mesmo café apenas uma vez (senão 409).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewInput' }
+      responses:
+        '201':
+          description: Review criada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /reviews/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Reviews]
+      summary: Buscar review por id
+      responses:
+        '200':
+          description: Review encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Reviews]
+      summary: Substituir notas e comentário (somente o autor)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewUpdate' }
+      responses:
+        '200':
+          description: Review atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    patch:
+      tags: [Reviews]
+      summary: Alterar parcialmente (somente o autor)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewPatch' }
+      responses:
+        '200':
+          description: Review atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    delete:
+      tags: [Reviews]
+      summary: Excluir review (somente o autor)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Excluída — sem conteúdo }
+        '401': { $ref: '#/components/responses/NaoAutorizado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, example: 1 }
+
+  responses:
+    RequisicaoInvalida:
+      description: Dados inválidos (campo obrigatório, nota fora de 1–5, id ou JSON inválido)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { status: 400, erro: "Campo 'notaBebida' deve ser de 1 a 5." }
+    NaoAutorizado:
+      description: Token ausente/inválido/expirado, ou login incorreto
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { status: 401, erro: "Token JWT obrigatorio." }
+    Proibido:
+      description: Usuário não é o autor da review
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { status: 403, erro: "Somente o autor pode alterar ou excluir esta review." }
+    NaoEncontrado:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { status: 404, erro: "Cafe 999 nao encontrado." }
+    Conflito:
+      description: Conflito com o estado atual
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { status: 409, erro: "Voce ja avaliou este cafe. Use PUT/PATCH para alterar sua review." }
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        status: { type: integer, example: 404 }
+        erro: { type: string, example: "Cafe 999 nao encontrado." }
+
+    RegistroRequest:
+      type: object
+      required: [nome, email, senha]
+      properties:
+        nome: { type: string, example: Ana Lima }
+        email: { type: string, example: ana@email.com }
+        senha: { type: string, minLength: 6, example: abc123 }
+
+    LoginRequest:
+      type: object
+      required: [email, senha]
+      properties:
+        email: { type: string, example: guilherme@email.com }
+        senha: { type: string, example: "123456" }
+
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string, example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... }
+        tipo: { type: string, example: Bearer }
+        expiraEmHoras: { type: integer, example: 2 }
+        usuario: { $ref: '#/components/schemas/Usuario' }
+
+    Usuario:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        nome: { type: string, example: Guilherme Vital }
+        email: { type: string, example: guilherme@email.com }
+
+    CafeInput:
+      type: object
+      required: [nome, endereco, bairro, tipoCafePrincipal]
+      properties:
+        nome: { type: string, maxLength: 100, example: Café Aroma }
+        endereco: { type: string, maxLength: 255, example: "Rua A, 1" }
+        bairro: { type: string, maxLength: 100, example: Jardim }
+        tipoCafePrincipal: { type: string, maxLength: 50, example: cold brew }
+
+    CafePatch:
+      type: object
+      description: Envie apenas os campos que deseja alterar
+      properties:
+        nome: { type: string }
+        endereco: { type: string }
+        bairro: { type: string, example: Centro }
+        tipoCafePrincipal: { type: string }
+
+    Cafe:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        nome: { type: string, example: Grao Nobre }
+        endereco: { type: string, example: "Rua das Flores, 120" }
+        bairro: { type: string, example: Centro }
+        tipoCafePrincipal: { type: string, example: espresso }
+        totalReviews: { type: integer, example: 2 }
+        mediaBebida: { type: number, nullable: true, example: 4.5 }
+        mediaAmbiente: { type: number, nullable: true, example: 4.0 }
+        mediaAtendimento: { type: number, nullable: true, example: 4.0 }
+        mediaGeral: { type: number, nullable: true, example: 4.17 }
+
+    ReviewInput:
+      type: object
+      required: [cafeId, notaBebida, notaAmbiente, notaAtendimento]
+      properties:
+        cafeId: { type: integer, example: 4 }
+        notaBebida: { type: integer, minimum: 1, maximum: 5, example: 5 }
+        notaAmbiente: { type: integer, minimum: 1, maximum: 5, example: 4 }
+        notaAtendimento: { type: integer, minimum: 1, maximum: 5, example: 3 }
+        comentario: { type: string, maxLength: 1000, example: Ótimo café! }
+
+    ReviewUpdate:
+      type: object
+      required: [notaBebida, notaAmbiente, notaAtendimento]
+      properties:
+        notaBebida: { type: integer, minimum: 1, maximum: 5, example: 4 }
+        notaAmbiente: { type: integer, minimum: 1, maximum: 5, example: 4 }
+        notaAtendimento: { type: integer, minimum: 1, maximum: 5, example: 4 }
+        comentario: { type: string, example: Mudei de ideia. }
+
+    ReviewPatch:
+      type: object
+      description: Envie apenas os campos que deseja alterar
+      properties:
+        notaBebida: { type: integer, minimum: 1, maximum: 5 }
+        notaAmbiente: { type: integer, minimum: 1, maximum: 5 }
+        notaAtendimento: { type: integer, minimum: 1, maximum: 5, example: 5 }
+        comentario: { type: string }
+
+    Review:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        cafeId: { type: integer, example: 1 }
+        cafeNome: { type: string, example: Grao Nobre }
+        usuarioId: { type: integer, example: 1 }
+        autor: { type: string, example: Guilherme Vital }
+        notaBebida: { type: integer, example: 5 }
+        notaAmbiente: { type: integer, example: 4 }
+        notaAtendimento: { type: integer, example: 5 }
+        comentario: { type: string, example: Espresso encorpado e atendimento rapido. }
+        criadoEm: { type: string, example: "2026-11-26T14:30:00" }

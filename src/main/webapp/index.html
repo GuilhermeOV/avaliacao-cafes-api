@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>API de Cafés — Swagger</title>
+    <!-- Arquivos do Swagger UI vem da dependencia org.webjars:swagger-ui (dentro do .war, sem internet) -->
+    <link rel="stylesheet" href="webjars/swagger-ui/5.17.14/swagger-ui.css">
+    <style>
+        body { margin: 0; background: #fafafa; }
+        .topbar { display: none; }
+        .cabecalho { background: #4b2e1e; color: #fff; padding: 14px 24px; font-family: sans-serif; }
+        .cabecalho h1 { margin: 0; font-size: 20px; }
+        .cabecalho p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+    </style>
+</head>
+<body>
+<div class="cabecalho">
+    <h1>☕ Plataforma de Avaliação de Cafés Locais</h1>
+    <p>API REST — Java Servlets · MVC (Controller → Service → DAO) · MySQL · JWT</p>
+</div>
+<div id="swagger-ui"></div>
+
+<script src="webjars/swagger-ui/5.17.14/swagger-ui-bundle.js"></script>
+<script>
+    const ui = SwaggerUIBundle({
+        url: "openapi.yaml",
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        persistAuthorization: true,
+        docExpansion: "list",
+        defaultModelsExpandDepth: 0,
+        tryItOutEnabled: true,
+        // Depois de um login com sucesso, aplica o token automaticamente no "Authorize".
+        responseInterceptor: function (resposta) {
+            if (resposta.url.endsWith("/auth/login") && resposta.status === 200 && resposta.body && resposta.body.token) {
+                ui.preauthorizeApiKey("bearerAuth", resposta.body.token);
+            }
+            return resposta;
+        }
+    });
+</script>
+</body>
+</html>
