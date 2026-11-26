@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cafés Locais</title>
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!--
+    FRONT-END da API de Cafés.
+    HTML + CSS + JavaScript puro (sem framework). Toda a comunicação com a API
+    fica em app.js, na função api(), usando fetch() e JSON.
+-->
+
+<header class="topo">
+    <h1>☕ Cafés Locais</h1>
+    <!-- Menu de login: botão no topo que abre um painel (formulário ou dados do usuário logado) -->
+    <div class="menu-usuario">
+        <button id="btnMenu" class="botao-menu" aria-haspopup="true" aria-expanded="false"></button>
+
+        <div id="painelMenu" class="painel" hidden>
+            <!-- Mostrado quando está logado -->
+            <div id="painelLogado" hidden>
+                <div class="perfil">
+                    <span class="avatar grande" id="avatarGrande"></span>
+                    <div>
+                        <strong id="nomeLogado"></strong>
+                        <div class="suave" id="emailLogado"></div>
+                    </div>
+                </div>
+                <p class="suave" id="expiraLogado"></p>
+                <button id="btnSair" class="secundario largo">Sair</button>
+            </div>
+
+            <!-- Mostrado quando não está logado -->
+            <form id="formLogin">
+                <h2 id="tituloLogin">Entrar</h2>
+                <label id="campoNome" hidden>Nome <input name="nome"></label>
+                <label>E-mail <input name="email" type="email" value="guilherme@email.com" required></label>
+                <label>Senha <input name="senha" type="password" value="123456" required></label>
+                <button type="submit" class="destaque largo" id="btnEnviarLogin">Entrar</button>
+                <button type="button" class="link centro" id="btnTrocarModo">Não tem conta? Cadastre-se</button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<main>
+    <!-- Filtros: viram query string em GET /api/cafes -->
+    <section class="filtros">
+        <input id="filtroBairro" placeholder="Bairro (ex.: Centro)">
+        <input id="filtroTipo" placeholder="Tipo de café (ex.: espresso)">
+        <select id="filtroOrdenar">
+            <option value="nome">Ordenar por nome</option>
+            <option value="media">Ranking (melhor média)</option>
+        </select>
+        <button id="btnFiltrar">Filtrar</button>
+        <button id="btnLimpar" class="secundario">Limpar</button>
+        <button id="btnNovoCafe" class="destaque">+ Novo café</button>
+    </section>
+
+    <section id="listaCafes" class="grade"></section>
+</main>
+
+<!-- Detalhe de um café + reviews -->
+<dialog id="dlgCafe">
+    <div id="conteudoCafe"></div>
+</dialog>
+
+<!-- Criar / editar café -->
+<dialog id="dlgFormCafe">
+    <form id="formCafe" method="dialog">
+        <h2 id="tituloFormCafe">Novo café</h2>
+        <label>Nome <input name="nome" required></label>
+        <label>Endereço <input name="endereco" required></label>
+        <label>Bairro <input name="bairro" required></label>
+        <label>Tipo de café principal <input name="tipoCafePrincipal" required></label>
+        <div class="acoes">
+            <button type="button" class="secundario" data-fechar>Cancelar</button>
+            <button type="submit" class="destaque">Salvar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Criar / editar review -->
+<dialog id="dlgFormReview">
+    <form id="formReview" method="dialog">
+        <h2 id="tituloFormReview">Avaliar</h2>
+        <label>Bebida <select name="notaBebida"></select></label>
+        <label>Ambiente <select name="notaAmbiente"></select></label>
+        <label>Atendimento <select name="notaAtendimento"></select></label>
+        <label>Comentário <textarea name="comentario" rows="3"></textarea></label>
+        <div class="acoes">
+            <button type="button" class="secundario" data-fechar>Cancelar</button>
+            <button type="submit" class="destaque">Salvar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Mensagens de sucesso/erro (mostra o status HTTP devolvido pela API) -->
+<div id="avisos"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -129,7 +129,13 @@ docker compose up -d       # sobe MySQL (porta 3307) e Tomcat (porta 8081)
 ```
 
 - **Swagger (documentação interativa): `http://127.0.0.1:8081/cafes/`**
+- **Front-end (site que consome a API): `http://127.0.0.1:8081/cafes/app/`**
 - Base da API: `http://127.0.0.1:8081/cafes/api`
+
+O front-end fica em `src/main/webapp/app/` (HTML, CSS e JavaScript puro, sem framework). Ele usa `fetch()`
+para chamar a API, guarda o token JWT do login e envia `Authorization: Bearer <token>` nas rotas protegidas.
+Permite listar e filtrar cafés, ver o ranking, ver as médias e avaliações, fazer login/cadastro, avaliar,
+editar/excluir a própria avaliação e criar/editar/excluir cafés. Os erros da API aparecem com o status HTTP.
 
 > Use `127.0.0.1` em vez de `localhost` (em algumas máquinas `localhost` vai para IPv6 e não responde).
 > Aguarde ~20 s após o `docker compose up -d` para o Tomcat terminar de subir.
